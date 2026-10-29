@@ -4,6 +4,9 @@
 name: Km0 Windows build
 
 on:
+  # workflow_dispatch alone is listed only when the file is on the default branch
+  push:
+    branches: [km0]
   workflow_dispatch:
 
 concurrency:
