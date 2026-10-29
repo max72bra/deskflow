@@ -362,6 +362,12 @@ bool ServerProxy::onGrabClipboard(ClipboardID id)
   return true;
 }
 
+void ServerProxy::onDeskChanged(const std::string &name)
+{
+  LOG_DEBUG("sending desk \"%s\"", name.c_str());
+  ProtocolUtil::writef(m_stream, kMsgDDesk, &name);
+}
+
 void ServerProxy::onClipboardChanged(ClipboardID id, const IClipboard *clipboard)
 {
   std::string data = IClipboard::marshall(clipboard);

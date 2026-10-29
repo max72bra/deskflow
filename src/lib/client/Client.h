@@ -213,6 +213,7 @@ private:
   void handleDisconnectRequested(const Event &event);
   void handleShapeChanged();
   void handleClipboardGrabbed(const Event &event);
+  void handleDeskChanged(const Event &event);
   void handleHello();
   void handleSuspend();
   void handleResume();
@@ -240,6 +241,8 @@ private:
   bool m_enableClipboard = true;
   bool m_relativeMouseMoves = false;
   bool m_hasRelativeRestorePosition = false;
+  bool m_deskNotify = false;
+  std::string m_deskName;
   int32_t m_relativeRestoreX = 0;
   int32_t m_relativeRestoreY = 0;
   size_t m_maximumClipboardSize = INT_MAX;

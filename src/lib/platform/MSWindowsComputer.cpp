@@ -100,7 +100,7 @@ MSWindowsComputer::MSWindowsComputer(bool isPrimary, bool useHooks, IEventQueue 
 
     m_screensaver = new MSWindowsScreenSaver();
     m_desks = new MSWindowsDesks(
-        m_isPrimary, m_useHooks, m_screensaver, m_events,
+        m_isPrimary, m_useHooks, m_screensaver, m_events, getEventTarget(),
         new TMethodJob<MSWindowsComputer>(this, &MSWindowsComputer::updateKeysCB)
     );
     m_keyState = new MSWindowsKeyState(

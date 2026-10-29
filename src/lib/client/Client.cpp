@@ -317,6 +317,7 @@ void Client::resetOptions()
 {
   m_relativeMouseMoves = false;
   m_hasRelativeRestorePosition = false;
+  m_deskNotify = false;
   m_computer->resetOptions();
 }
 
@@ -348,6 +349,16 @@ void Client::setOptions(const OptionsList &options)
         m_relativeMouseMoves = (*index != 0);
         if (m_relativeMouseMoves && m_ready && !m_hasRelativeRestorePosition) {
           saveRelativeRestorePosition();
+        }
+      }
+    } else if (id == kOptionDeskNotify) {
+      index++;
+      if (index != options.end()) {
+        bool wasEnabled = m_deskNotify;
+        m_deskNotify = (*index != 0);
+        // tell the server the current desk right away, it may already be on Winlogon
+        if (m_deskNotify && !wasEnabled && !m_deskName.empty()) {
+          m_server->onDeskChanged(m_deskName);
         }
       }
     }
@@ -494,6 +505,9 @@ bool Client::setupComputer(int16_t protocolMinor)
     m_events->addHandler(EventTypes::ClipboardGrabbed, getEventTarget(), [this](const auto &e) {
       handleClipboardGrabbed(e);
     });
+    m_events->addHandler(EventTypes::ComputerDeskChanged, getEventTarget(), [this](const auto &e) {
+      handleDeskChanged(e);
+    });
   }
   return m_server != nullptr;
 }
@@ -546,6 +560,8 @@ void Client::cleanupComputer()
     }
     m_events->removeHandler(EventTypes::ComputerShapeChanged, getEventTarget());
     m_events->removeHandler(EventTypes::ClipboardGrabbed, getEventTarget());
+    m_events->removeHandler(EventTypes::ComputerDeskChanged, getEventTarget());
+    m_deskName.clear();
     delete m_server;
     m_server = nullptr;
   }
@@ -639,6 +655,14 @@ void Client::handleShapeChanged()
 {
   LOG_DEBUG("resolution changed");
   m_server->onInfoChanged();
+}
+
+void Client::handleDeskChanged(const Event &event)
+{
+  m_deskName = static_cast<const char *>(event.getData());
+  if (m_deskNotify) {
+    m_server->onDeskChanged(m_deskName);
+  }
 }
 
 void Client::handleClipboardGrabbed(const Event &event)

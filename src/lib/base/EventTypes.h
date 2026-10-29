@@ -220,6 +220,11 @@ enum class EventTypes : uint32_t
   */
   ComputerResume,
 
+  /** This event is sent whenever the input desktop changes (Windows only, e.g. UAC or lock screen).
+      The data is a malloc'd UTF-8 C string with the desktop name.
+  */
+  ComputerDeskChanged,
+
   /** This event is sent whenever the clipboard is grabbed by some other application so we
       don't own it anymore. The data is a pointer to a ClipboardInfo.
   */

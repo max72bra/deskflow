@@ -50,6 +50,7 @@ public:
   void onInfoChanged();
   bool onGrabClipboard(ClipboardID);
   void onClipboardChanged(ClipboardID, const IClipboard *);
+  void onDeskChanged(const std::string &name);
 
   //@}
 

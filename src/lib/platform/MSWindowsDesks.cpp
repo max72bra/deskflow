@@ -21,6 +21,7 @@
 #include "platform/MSWindowsComputer.h"
 #include "platform/MSWindowsHook.h"
 
+#include <QString>
 #include <malloc.h>
 
 // these are only defined when WINVER >= 0x0500
@@ -111,7 +112,8 @@ static void send_mouse_input(DWORD dwFlags, DWORD dx, DWORD dy, DWORD dwData)
 //
 
 MSWindowsDesks::MSWindowsDesks(
-    bool isPrimary, bool useHooks, const IScreenSaver *screensaver, IEventQueue *events, IJob *updateKeys
+    bool isPrimary, bool useHooks, const IScreenSaver *screensaver, IEventQueue *events, void *eventTarget,
+    IJob *updateKeys
 )
     : m_isPrimary(isPrimary),
       m_useHooks(useHooks),
@@ -119,7 +121,8 @@ MSWindowsDesks::MSWindowsDesks(
       m_screensaver(screensaver),
       m_deskReady(&m_mutex, false),
       m_updateKeys(updateKeys),
-      m_events(events)
+      m_events(events),
+      m_eventTarget(eventTarget)
 {
 
   m_cursor = createBlankCursor();
@@ -877,6 +880,11 @@ void MSWindowsDesks::checkDesk()
     if (syncKeys) {
       updateKeys();
     }
+
+    // tell the client, which forwards it to the server if asked (e.g. Winlogon = UAC or lock screen)
+    m_events->addEvent(Event(
+        EventTypes::ComputerDeskChanged, m_eventTarget, _strdup(QString::fromStdWString(name).toStdString().c_str())
+    ));
   } else if (name != m_activeDeskName) {
     // screen saver might have started
     PostThreadMessage(m_threadID, DESKFLOW_MSG_SCREEN_SAVER, TRUE, 0);

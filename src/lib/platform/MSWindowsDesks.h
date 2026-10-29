@@ -54,7 +54,10 @@ public:
   updated in a thread attached to the current desk.
   \p hookLibrary must be a handle to the hook library.
   */
-  MSWindowsDesks(bool isPrimary, bool useHooks, const IScreenSaver *screensaver, IEventQueue *events, IJob *updateKeys);
+  MSWindowsDesks(
+      bool isPrimary, bool useHooks, const IScreenSaver *screensaver, IEventQueue *events, void *eventTarget,
+      IJob *updateKeys
+  );
   ~MSWindowsDesks();
 
   //! @name manipulators
@@ -284,4 +287,5 @@ private:
   bool m_relativeMouseMoves = false;
 
   IEventQueue *m_events;
+  void *m_eventTarget;
 };

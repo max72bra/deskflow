@@ -1162,6 +1162,22 @@ extern const char *const kMsgDSecureInputNotification;
  */
 extern const char *const kMsgDLanguageSynchronisation;
 
+/**
+ * @brief Input desktop changed (Km0 extension)
+ *
+ * **Message Code**: `"DDSK"`
+ * **Format**: `"DDSK%s"`
+ * **Parameters**:
+ * - `$1`: Desktop name (string, UTF-8)
+ *
+ * Sent by a Windows secondary when its input desktop changes, e.g.
+ * `Default` (normal) or `Winlogon` (UAC prompt, lock screen), and once
+ * right after the option is enabled. Sent only when the primary enabled
+ * kOptionDeskNotify, because an unaware primary drops the connection on
+ * unknown messages.
+ */
+extern const char *const kMsgDDesk;
+
 /** @} */ // end of protocol_system group
 
 /** @} */ // end of protocol_data group
