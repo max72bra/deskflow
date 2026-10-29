@@ -19,7 +19,8 @@ env:
 jobs:
   windows-x64:
     runs-on: windows-2022
-    timeout-minutes: 30
+    # first run on the fork has no Qt/vcpkg cache (OpenSSL built from source)
+    timeout-minutes: 120
 
     steps:
       # Fancy checkout gets all the tags
