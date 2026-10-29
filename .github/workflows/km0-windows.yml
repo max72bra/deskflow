@@ -1,14 +1,13 @@
-# Km0 fork: Windows x64 MSI only, started by hand.
+# Km0 fork: Windows x64 MSI only, built and released on tags v*-km0*.
 # Derived from continuous-integration.yml (main-build, windows-2022-x64 target).
 
 name: Km0 Windows build
 
 on:
-  # workflow_dispatch alone is listed only when the file is on the default branch
+  # tags only: a branch trigger too would build twice when commit and tag are pushed together
   push:
-    branches: [km0]
     tags:
-      - "v*-km0"
+      - "v*-km0*"
   workflow_dispatch:
 
 concurrency:
