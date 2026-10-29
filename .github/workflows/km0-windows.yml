@@ -1,0 +1,56 @@
+# Km0 fork: Windows x64 MSI only, started by hand.
+# Derived from continuous-integration.yml (main-build, windows-2022-x64 target).
+
+name: Km0 Windows build
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CMAKE_CONFIGURE: "cmake -Bbuild -DCMAKE_BUILD_TYPE=Release -DSKIP_BUILD_TESTS=ON -DCMAKE_COMPILE_WARNING_AS_ERROR=ON"
+
+jobs:
+  windows-x64:
+    runs-on: windows-2022
+    timeout-minutes: 30
+
+    steps:
+      # Fancy checkout gets all the tags
+      # it also makes sure we can use git --describe correctly
+      - name: Fancy Checkout
+        uses: sithlord48/fancy-checkout@v2
+
+      # This effectively runs `vcvarsall.bat`, etc. It's not actually installing
+      # VC++ as that's already pre-installed on the Windows runner.
+      - name: Setup VC++ environment
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: amd64
+          spectre: true
+
+      - name: Install dependencies
+        id: get-deps
+        uses: ./.github/actions/install-dependencies
+        with:
+          qt-version: 6.11.3
+          vcpkg-triplet: x64-windows-release
+
+      - name: Get version
+        uses: ./.github/actions/get-version
+
+      - name: Configure
+        run: ${{env.CMAKE_CONFIGURE}} -G Ninja ${{ steps.get-deps.outputs.vcpkg-cmake-config }} -DPACKAGE_VERSION_LABEL="${{env.DESKFLOW_PACKAGE_VERSION}}"
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release -j8 --target package
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-deskflow-km0-windows-x64
+          path: ${{github.workspace}}/build/deskflow[-_]*.*
