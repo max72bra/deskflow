@@ -214,6 +214,7 @@ private:
   void handleShapeChanged();
   void handleClipboardGrabbed(const Event &event);
   void handleDeskChanged(const Event &event);
+  void handleDeskScreen(const Event &event);
   void handleHello();
   void handleSuspend();
   void handleResume();

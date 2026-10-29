@@ -368,6 +368,21 @@ void ServerProxy::onDeskChanged(const std::string &name)
   ProtocolUtil::writef(m_stream, kMsgDDesk, &name);
 }
 
+void ServerProxy::onDeskScreen(const std::string &jpeg)
+{
+  LOG_DEBUG("sending desk picture, %zu bytes", jpeg.size());
+  const std::string size = std::to_string(jpeg.size());
+  ProtocolUtil::writef(m_stream, kMsgDScreen, ChunkType::DataStart, &size);
+  // the server drops messages over 1 MB
+  const size_t chunkSize = 32 * 1024;
+  for (size_t at = 0; at < jpeg.size(); at += chunkSize) {
+    const std::string chunk = jpeg.substr(at, chunkSize);
+    ProtocolUtil::writef(m_stream, kMsgDScreen, ChunkType::DataChunk, &chunk);
+  }
+  const std::string end;
+  ProtocolUtil::writef(m_stream, kMsgDScreen, ChunkType::DataEnd, &end);
+}
+
 void ServerProxy::onClipboardChanged(ClipboardID id, const IClipboard *clipboard)
 {
   std::string data = IClipboard::marshall(clipboard);

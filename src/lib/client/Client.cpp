@@ -508,6 +508,9 @@ bool Client::setupComputer(int16_t protocolMinor)
     m_events->addHandler(EventTypes::ComputerDeskChanged, getEventTarget(), [this](const auto &e) {
       handleDeskChanged(e);
     });
+    m_events->addHandler(EventTypes::ComputerDeskScreen, getEventTarget(), [this](const auto &e) {
+      handleDeskScreen(e);
+    });
   }
   return m_server != nullptr;
 }
@@ -561,6 +564,7 @@ void Client::cleanupComputer()
     m_events->removeHandler(EventTypes::ComputerShapeChanged, getEventTarget());
     m_events->removeHandler(EventTypes::ClipboardGrabbed, getEventTarget());
     m_events->removeHandler(EventTypes::ComputerDeskChanged, getEventTarget());
+    m_events->removeHandler(EventTypes::ComputerDeskScreen, getEventTarget());
     m_deskName.clear();
     delete m_server;
     m_server = nullptr;
@@ -663,6 +667,18 @@ void Client::handleDeskChanged(const Event &event)
   if (m_deskNotify) {
     m_server->onDeskChanged(m_deskName);
   }
+}
+
+void Client::handleDeskScreen(const Event &event)
+{
+  // a picture taken just before the desk went back to Default would show a stale secure desktop
+  if (m_deskName.empty() || m_deskName == "Default") {
+    return;
+  }
+  const auto *data = static_cast<const char *>(event.getData());
+  uint32_t size;
+  std::memcpy(&size, data, sizeof(size));
+  m_server->onDeskScreen(std::string(data + sizeof(size), size));
 }
 
 void Client::handleClipboardGrabbed(const Event &event)

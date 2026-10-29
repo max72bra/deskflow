@@ -22,7 +22,14 @@
 #include "platform/MSWindowsHook.h"
 
 #include <QString>
+#include <cstring>
+#include <functional>
+#include <initializer_list>
 #include <malloc.h>
+#include <string_view>
+#include <wincodec.h>
+
+#pragma comment(lib, "windowscodecs.lib")
 
 // these are only defined when WINVER >= 0x0500
 #if !defined(SPI_GETMOUSESPEED)
@@ -81,6 +88,8 @@
 #define DESKFLOW_MSG_FAKE_REL_MOVE DESKFLOW_HOOK_LAST_MSG + 11
 // enable; <unused>
 #define DESKFLOW_MSG_FAKE_INPUT DESKFLOW_HOOK_LAST_MSG + 12
+// Km0: take a picture of the desk; no params
+#define DESKFLOW_MSG_PICTURE DESKFLOW_HOOK_LAST_MSG + 13
 
 static void send_keyboard_input(WORD wVk, WORD wScan, DWORD dwFlags)
 {
@@ -106,6 +115,102 @@ static void send_mouse_input(DWORD dwFlags, DWORD dx, DWORD dy, DWORD dwData)
   inp.mi.dwExtraInfo = 0;
   SendInput(1, &inp, sizeof(inp));
 }
+
+namespace {
+
+// encodeJpeg compresses top-down 24-bit BGR pixels with WIC; empty on failure. COM must be initialized.
+std::string encodeJpeg(BYTE *bits, UINT width, UINT height, UINT stride)
+{
+  std::string out;
+  IWICImagingFactory *factory = nullptr;
+  IStream *stream = nullptr;
+  IWICBitmapEncoder *encoder = nullptr;
+  IWICBitmapFrameEncode *frame = nullptr;
+  IPropertyBag2 *props = nullptr;
+  bool ok =
+      SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory))) &&
+      SUCCEEDED(CreateStreamOnHGlobal(nullptr, TRUE, &stream)) &&
+      SUCCEEDED(factory->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, &encoder)) &&
+      SUCCEEDED(encoder->Initialize(stream, WICBitmapEncoderNoCache)) &&
+      SUCCEEDED(encoder->CreateNewFrame(&frame, &props));
+  if (ok) {
+    PROPBAG2 option = {};
+    option.pstrName = const_cast<LPOLESTR>(L"ImageQuality");
+    VARIANT quality;
+    VariantInit(&quality);
+    quality.vt = VT_R4;
+    quality.fltVal = 0.7f;
+    props->Write(1, &option, &quality);
+    WICPixelFormatGUID format = GUID_WICPixelFormat24bppBGR;
+    ok = SUCCEEDED(frame->Initialize(props)) && SUCCEEDED(frame->SetSize(width, height)) &&
+         SUCCEEDED(frame->SetPixelFormat(&format)) && IsEqualGUID(format, GUID_WICPixelFormat24bppBGR) &&
+         SUCCEEDED(frame->WritePixels(height, stride, stride * height, bits)) && SUCCEEDED(frame->Commit()) &&
+         SUCCEEDED(encoder->Commit());
+  }
+  STATSTG stat = {};
+  HGLOBAL global = nullptr;
+  if (ok && SUCCEEDED(stream->Stat(&stat, STATFLAG_NONAME)) && SUCCEEDED(GetHGlobalFromStream(stream, &global))) {
+    if (const void *data = GlobalLock(global); data != nullptr) {
+      out.assign(static_cast<const char *>(data), static_cast<size_t>(stat.cbSize.QuadPart));
+      GlobalUnlock(global);
+    }
+  }
+  for (IUnknown *p : std::initializer_list<IUnknown *>{props, frame, encoder, stream, factory}) {
+    if (p != nullptr) {
+      p->Release();
+    }
+  }
+  return out;
+}
+
+// takeDeskPicture is a JPEG of the area of the desk this thread is attached to, or empty when it did not
+// change since lastHash (updated) or the capture failed.
+std::string takeDeskPicture(int32_t x, int32_t y, int32_t w, int32_t h, size_t &lastHash)
+{
+  std::string jpeg;
+  if (w <= 0 || h <= 0) {
+    return jpeg;
+  }
+  HDC screen = GetDC(nullptr);
+  if (screen == nullptr) {
+    return jpeg;
+  }
+  HDC memory = CreateCompatibleDC(screen);
+  BITMAPINFO info = {};
+  info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  info.bmiHeader.biWidth = w;
+  info.bmiHeader.biHeight = -h; // top-down, as WIC takes it
+  info.bmiHeader.biPlanes = 1;
+  info.bmiHeader.biBitCount = 24;
+  info.bmiHeader.biCompression = BI_RGB;
+  void *bits = nullptr;
+  HBITMAP bitmap = memory != nullptr ? CreateDIBSection(memory, &info, DIB_RGB_COLORS, &bits, nullptr, 0) : nullptr;
+  if (bitmap != nullptr) {
+    HGDIOBJ old = SelectObject(memory, bitmap);
+    const BOOL copied = BitBlt(memory, 0, 0, w, h, screen, x, y, SRCCOPY | CAPTUREBLT);
+    SelectObject(memory, old);
+    GdiFlush();
+    const UINT stride = (static_cast<UINT>(w) * 3 + 3) & ~3u;
+    const std::string_view pixels(
+        static_cast<const char *>(bits), static_cast<size_t>(stride) * static_cast<size_t>(h)
+    );
+    const size_t hash = copied ? std::hash<std::string_view>{}(pixels) : 0;
+    if (copied && hash != lastHash) {
+      jpeg = encodeJpeg(static_cast<BYTE *>(bits), static_cast<UINT>(w), static_cast<UINT>(h), stride);
+      if (!jpeg.empty()) {
+        lastHash = hash;
+      }
+    }
+    DeleteObject(bitmap);
+  }
+  if (memory != nullptr) {
+    DeleteDC(memory);
+  }
+  ReleaseDC(nullptr, screen);
+  return jpeg;
+}
+
+} // namespace
 
 //
 // MSWindowsDesks
@@ -185,6 +290,7 @@ void MSWindowsDesks::resetOptions()
 {
   m_leaveForegroundOption = false;
   m_relativeMouseMoves = false;
+  m_deskScreen = false;
   for (auto &entry : m_desks) {
     entry.second->m_hasRelativeRestorePosition = false;
   }
@@ -198,6 +304,8 @@ void MSWindowsDesks::setOptions(const OptionsList &options)
       LOG_VERBOSE("%s the foreground window", m_leaveForegroundOption ? "don\'t grab" : "grab");
     } else if (options[i] == kOptionRelativeMouseMoves) {
       m_relativeMouseMoves = (options[i + 1] != 0);
+    } else if (options[i] == kOptionDeskScreen) {
+      m_deskScreen = (options[i + 1] != 0);
     }
   }
 }
@@ -686,7 +794,25 @@ void MSWindowsDesks::deskThread(const void *vdesk)
       DispatchMessage(&msg);
       continue;
 
+    case DESKFLOW_MSG_PICTURE: {
+      // asynchronous: no one waits for it, so it must not signal m_deskReady (see continue)
+      const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+      std::string jpeg = takeDeskPicture(m_x, m_y, m_w, m_h, desk->m_lastPicture);
+      if (SUCCEEDED(com)) {
+        CoUninitialize();
+      }
+      if (!jpeg.empty()) {
+        const auto size = static_cast<uint32_t>(jpeg.size());
+        auto *data = static_cast<char *>(malloc(sizeof(size) + jpeg.size()));
+        std::memcpy(data, &size, sizeof(size));
+        std::memcpy(data + sizeof(size), jpeg.data(), jpeg.size());
+        m_events->addEvent(Event(EventTypes::ComputerDeskScreen, m_eventTarget, data));
+      }
+      continue;
+    }
+
     case DESKFLOW_MSG_SWITCH:
+      desk->m_lastPicture = 0; // the first picture of a desk is always sent
       if (m_useHooks) {
         MSWindowsHook::uninstall();
         if (m_screensaverNotify) {
@@ -885,9 +1011,16 @@ void MSWindowsDesks::checkDesk()
     m_events->addEvent(Event(
         EventTypes::ComputerDeskChanged, m_eventTarget, _strdup(QString::fromStdWString(name).toStdString().c_str())
     ));
+    m_pictureTick = 0; // the first picture right away
   } else if (name != m_activeDeskName) {
     // screen saver might have started
     PostThreadMessage(m_threadID, DESKFLOW_MSG_SCREEN_SAVER, TRUE, 0);
+  }
+
+  // Km0: while the desk is not the normal one (UAC, lock screen), a picture every other check (0.4 s)
+  if (m_deskScreen && m_activeDeskName != L"Default" && m_activeDesk != nullptr && m_activeDesk->m_window != nullptr &&
+      m_pictureTick++ % 2 == 0) {
+    PostThreadMessage(m_activeDesk->m_threadID, DESKFLOW_MSG_PICTURE, 0, 0);
   }
 }
 

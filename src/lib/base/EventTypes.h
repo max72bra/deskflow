@@ -225,6 +225,12 @@ enum class EventTypes : uint32_t
   */
   ComputerDeskChanged,
 
+  /** This event is sent with a picture of the input desktop while it is not the normal one (Windows only,
+      UAC or lock screen), when the server asked for it. The data is a malloc'd buffer: the JPEG size
+      (uint32_t, native order), then the JPEG.
+  */
+  ComputerDeskScreen,
+
   /** This event is sent whenever the clipboard is grabbed by some other application so we
       don't own it anymore. The data is a pointer to a ClipboardInfo.
   */

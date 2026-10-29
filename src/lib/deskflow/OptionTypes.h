@@ -59,6 +59,8 @@ static const OptionID kOptionClipboardSharing = OPTION_CODE("CLPS");
 static const OptionID kOptionClipboardSharingSize = OPTION_CODE("CLSZ");
 // Km0: server asks the client to report input desktop changes (kMsgDDesk)
 static const OptionID kOptionDeskNotify = OPTION_CODE("KDSK");
+// Km0: server asks the client for pictures of the input desktop while it is not Default (kMsgDScreen)
+static const OptionID kOptionDeskScreen = OPTION_CODE("KSCR");
 //@}
 
 //! @name Computer switch corner masks

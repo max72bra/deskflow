@@ -1178,6 +1178,22 @@ extern const char *const kMsgDLanguageSynchronisation;
  */
 extern const char *const kMsgDDesk;
 
+/**
+ * @brief Picture of the input desktop (Km0 extension)
+ *
+ * **Message Code**: `"DSCR"`
+ * **Format**: `"DSCR%1i%s"`
+ * **Parameters**:
+ * - `$1`: Mark (1 byte): ChunkType::DataStart, DataChunk or DataEnd
+ * - `$2`: Data (string): the JPEG size in decimal (start), up to 32 KB of the JPEG (chunk), empty (end)
+ *
+ * Sent by a Windows secondary while its input desktop is not `Default`
+ * (UAC prompt, lock screen), which the primary's own screen capture
+ * cannot show, only when the image changed. Sent only when the primary
+ * enabled kOptionDeskScreen.
+ */
+extern const char *const kMsgDScreen;
+
 /** @} */ // end of protocol_system group
 
 /** @} */ // end of protocol_data group

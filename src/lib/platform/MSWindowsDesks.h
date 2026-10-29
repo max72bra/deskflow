@@ -193,6 +193,7 @@ private:
     bool m_hasRelativeRestorePosition = false;
     int32_t m_relativeRestoreX = 0;
     int32_t m_relativeRestoreY = 0;
+    size_t m_lastPicture = 0; // hash of the last picture sent of this desk (kOptionDeskScreen); desk thread only
   };
   using Desks = std::map<std::wstring, Desk *>;
 
@@ -285,6 +286,8 @@ private:
   // options
   bool m_leaveForegroundOption;
   bool m_relativeMouseMoves = false;
+  bool m_deskScreen = false; // Km0: send pictures of a desk other than Default
+  int m_pictureTick = 0;
 
   IEventQueue *m_events;
   void *m_eventTarget;

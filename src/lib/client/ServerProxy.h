@@ -51,6 +51,7 @@ public:
   bool onGrabClipboard(ClipboardID);
   void onClipboardChanged(ClipboardID, const IClipboard *);
   void onDeskChanged(const std::string &name);
+  void onDeskScreen(const std::string &jpeg);
 
   //@}
 
