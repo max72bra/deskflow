@@ -1194,6 +1194,19 @@ extern const char *const kMsgDDesk;
  */
 extern const char *const kMsgDScreen;
 
+/**
+ * @brief Version of the secondary (Km0 extension)
+ *
+ * **Message Code**: `"DVER"`
+ * **Format**: `"DVER%s"`
+ * **Parameters**:
+ * - `$1`: Version (string): the Km0 release tag without "v", e.g. `1.27.0-km0.3`
+ *
+ * Sent once when the primary enables kOptionDeskNotify, so Km0 can offer
+ * the client an update. Builds without a release tag do not send it.
+ */
+extern const char *const kMsgDVersion;
+
 /** @} */ // end of protocol_system group
 
 /** @} */ // end of protocol_data group

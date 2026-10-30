@@ -15,3 +15,9 @@ add_library(client STATIC
 )
 
 target_link_libraries(client PUBLIC common)
+
+# Km0: the version reported to Km0 (kMsgDVersion), the release tag without "v" in CI (e.g. 1.27.0-km0.3);
+# local builds report none
+if(PACKAGE_VERSION_LABEL)
+  target_compile_definitions(client PRIVATE KM0_VERSION="${PACKAGE_VERSION_LABEL}")
+endif()

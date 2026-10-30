@@ -50,6 +50,7 @@ const char *const kMsgDSecureInputNotification = "SECN%s";
 const char *const kMsgDLanguageSynchronisation = "LSYN%s";
 const char *const kMsgDDesk = "DDSK%s";
 const char *const kMsgDScreen = "DSCR%1i%s";
+const char *const kMsgDVersion = "DVER%s";
 const char *const kMsgQInfo = "QINF";
 const char *const kMsgEIncompatible = "EICV%2i%2i";
 const char *const kMsgEBusy = "EBSY";

@@ -368,6 +368,12 @@ void ServerProxy::onDeskChanged(const std::string &name)
   ProtocolUtil::writef(m_stream, kMsgDDesk, &name);
 }
 
+void ServerProxy::onVersion(const std::string &version)
+{
+  LOG_DEBUG("sending version \"%s\"", version.c_str());
+  ProtocolUtil::writef(m_stream, kMsgDVersion, &version);
+}
+
 void ServerProxy::onDeskScreen(const std::string &jpeg)
 {
   LOG_DEBUG("sending desk picture, %zu bytes", jpeg.size());

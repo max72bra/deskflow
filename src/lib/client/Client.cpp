@@ -356,6 +356,12 @@ void Client::setOptions(const OptionsList &options)
       if (index != options.end()) {
         bool wasEnabled = m_deskNotify;
         m_deskNotify = (*index != 0);
+#ifdef KM0_VERSION
+        // the server is Km0: tell it this version, it offers the client the updates
+        if (m_deskNotify && !wasEnabled) {
+          m_server->onVersion(KM0_VERSION);
+        }
+#endif
         // tell the server the current desk right away, it may already be on Winlogon
         if (m_deskNotify && !wasEnabled && !m_deskName.empty()) {
           m_server->onDeskChanged(m_deskName);
