@@ -22,6 +22,8 @@
 #include "platform/MSWindowsHook.h"
 
 #include <QString>
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <functional>
 #include <initializer_list>
@@ -127,6 +129,15 @@ std::string encodeJpeg(BYTE *bits, UINT width, UINT height, UINT stride)
   IWICBitmapEncoder *encoder = nullptr;
   IWICBitmapFrameEncode *frame = nullptr;
   IPropertyBag2 *props = nullptr;
+  IWICBitmap *source = nullptr;
+  IWICBitmapScaler *scaler = nullptr;
+  // Km0 fits the picture to the viewer: past about 1080p more pixels only cost bandwidth, so keep that many
+  const double maxPixels = 1920.0 * 1080.0;
+  const double pixels = static_cast<double>(width) * static_cast<double>(height);
+  const double scale = pixels > maxPixels ? std::sqrt(maxPixels / pixels) : 1.0;
+  const UINT outWidth = (std::max)(1u, static_cast<UINT>(width * scale));
+  const UINT outHeight = (std::max)(1u, static_cast<UINT>(height * scale));
+  const bool scaled = outWidth != width || outHeight != height;
   bool ok =
       SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory))) &&
       SUCCEEDED(CreateStreamOnHGlobal(nullptr, TRUE, &stream)) &&
@@ -142,10 +153,17 @@ std::string encodeJpeg(BYTE *bits, UINT width, UINT height, UINT stride)
     quality.fltVal = 0.7f;
     props->Write(1, &option, &quality);
     WICPixelFormatGUID format = GUID_WICPixelFormat24bppBGR;
-    ok = SUCCEEDED(frame->Initialize(props)) && SUCCEEDED(frame->SetSize(width, height)) &&
+    // Linear: about as cheap as nearest neighbor, and at 4K to 1080p (2:1) it averages 2x2 pixels
+    ok = SUCCEEDED(frame->Initialize(props)) && SUCCEEDED(frame->SetSize(outWidth, outHeight)) &&
          SUCCEEDED(frame->SetPixelFormat(&format)) && IsEqualGUID(format, GUID_WICPixelFormat24bppBGR) &&
-         SUCCEEDED(frame->WritePixels(height, stride, stride * height, bits)) && SUCCEEDED(frame->Commit()) &&
-         SUCCEEDED(encoder->Commit());
+         (scaled ? SUCCEEDED(factory->CreateBitmapFromMemory(
+                       width, height, GUID_WICPixelFormat24bppBGR, stride, stride * height, bits, &source
+                   )) &&
+                       SUCCEEDED(factory->CreateBitmapScaler(&scaler)) &&
+                       SUCCEEDED(scaler->Initialize(source, outWidth, outHeight, WICBitmapInterpolationModeLinear)) &&
+                       SUCCEEDED(frame->WriteSource(scaler, nullptr))
+                 : SUCCEEDED(frame->WritePixels(height, stride, stride * height, bits))) &&
+         SUCCEEDED(frame->Commit()) && SUCCEEDED(encoder->Commit());
   }
   STATSTG stat = {};
   HGLOBAL global = nullptr;
@@ -155,7 +173,7 @@ std::string encodeJpeg(BYTE *bits, UINT width, UINT height, UINT stride)
       GlobalUnlock(global);
     }
   }
-  for (IUnknown *p : std::initializer_list<IUnknown *>{props, frame, encoder, stream, factory}) {
+  for (IUnknown *p : std::initializer_list<IUnknown *>{scaler, source, props, frame, encoder, stream, factory}) {
     if (p != nullptr) {
       p->Release();
     }
