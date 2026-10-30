@@ -286,8 +286,9 @@ private:
   // options
   bool m_leaveForegroundOption;
   bool m_relativeMouseMoves = false;
-  bool m_deskScreen = false; // Km0: send pictures of a desk other than Default
+  int m_deskScreen = 0; // Km0 (KSCR): 1 pictures of a desk other than Default, 2 also of Default
   int m_pictureTick = 0;
+  bool m_pictureForce = false; // the next picture goes even if unchanged: Km0 just asked (KSCR)
 
   IEventQueue *m_events;
   void *m_eventTarget;

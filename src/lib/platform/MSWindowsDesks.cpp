@@ -308,7 +308,7 @@ void MSWindowsDesks::resetOptions()
 {
   m_leaveForegroundOption = false;
   m_relativeMouseMoves = false;
-  m_deskScreen = false;
+  m_deskScreen = 0;
   for (auto &entry : m_desks) {
     entry.second->m_hasRelativeRestorePosition = false;
   }
@@ -323,7 +323,10 @@ void MSWindowsDesks::setOptions(const OptionsList &options)
     } else if (options[i] == kOptionRelativeMouseMoves) {
       m_relativeMouseMoves = (options[i + 1] != 0);
     } else if (options[i] == kOptionDeskScreen) {
-      m_deskScreen = (options[i + 1] != 0);
+      // asked again (a new session on Km0): the first picture right away, even if the desk did not change
+      m_pictureTick = 0;
+      m_pictureForce = true;
+      m_deskScreen = (int)options[i + 1];
     }
   }
 }
@@ -814,6 +817,9 @@ void MSWindowsDesks::deskThread(const void *vdesk)
 
     case DESKFLOW_MSG_PICTURE: {
       // asynchronous: no one waits for it, so it must not signal m_deskReady (see continue)
+      if (msg.wParam != 0) {
+        desk->m_lastPicture = 0; // forced: sent even if it did not change
+      }
       const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
       std::string jpeg = takeDeskPicture(m_x, m_y, m_w, m_h, desk->m_lastPicture);
       if (SUCCEEDED(com)) {
@@ -1035,10 +1041,13 @@ void MSWindowsDesks::checkDesk()
     PostThreadMessage(m_threadID, DESKFLOW_MSG_SCREEN_SAVER, TRUE, 0);
   }
 
-  // Km0: while the desk is not the normal one (UAC, lock screen), a picture every other check (0.4 s)
-  if (m_deskScreen && m_activeDeskName != L"Default" && m_activeDesk != nullptr && m_activeDesk->m_window != nullptr &&
+  // Km0: while the desk is not the normal one (UAC, lock screen), or on any desk when Km0 asks (KSCR=2: no
+  // browser shares the screen), a picture every other check (0.4 s)
+  if (m_deskScreen != 0 && (m_activeDeskName != L"Default" || m_deskScreen == 2) && m_activeDesk != nullptr &&
+      m_activeDesk->m_window != nullptr &&
       m_pictureTick++ % 2 == 0) {
-    PostThreadMessage(m_activeDesk->m_threadID, DESKFLOW_MSG_PICTURE, 0, 0);
+    PostThreadMessage(m_activeDesk->m_threadID, DESKFLOW_MSG_PICTURE, m_pictureForce ? 1 : 0, 0);
+    m_pictureForce = false;
   }
 }
 

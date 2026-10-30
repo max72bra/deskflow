@@ -318,6 +318,7 @@ void Client::resetOptions()
   m_relativeMouseMoves = false;
   m_hasRelativeRestorePosition = false;
   m_deskNotify = false;
+  m_deskScreenAll = false;
   m_computer->resetOptions();
 }
 
@@ -366,6 +367,11 @@ void Client::setOptions(const OptionsList &options)
         if (m_deskNotify && !wasEnabled && !m_deskName.empty()) {
           m_server->onDeskChanged(m_deskName);
         }
+      }
+    } else if (id == kOptionDeskScreen) {
+      index++;
+      if (index != options.end()) {
+        m_deskScreenAll = (*index == 2);
       }
     }
   }
@@ -677,8 +683,9 @@ void Client::handleDeskChanged(const Event &event)
 
 void Client::handleDeskScreen(const Event &event)
 {
-  // a picture taken just before the desk went back to Default would show a stale secure desktop
-  if (m_deskName.empty() || m_deskName == "Default") {
+  // a picture taken just before the desk went back to Default would show a stale secure desktop,
+  // unless Km0 asked for Default too
+  if (m_deskName.empty() || (m_deskName == "Default" && !m_deskScreenAll)) {
     return;
   }
   const auto *data = static_cast<const char *>(event.getData());

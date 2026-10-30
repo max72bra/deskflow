@@ -243,6 +243,7 @@ private:
   bool m_relativeMouseMoves = false;
   bool m_hasRelativeRestorePosition = false;
   bool m_deskNotify = false;
+  bool m_deskScreenAll = false; // Km0 asked for pictures of the Default desk too (KSCR=2)
   std::string m_deskName;
   int32_t m_relativeRestoreX = 0;
   int32_t m_relativeRestoreY = 0;
